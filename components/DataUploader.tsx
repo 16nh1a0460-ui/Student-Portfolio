@@ -1,10 +1,10 @@
 import React, { useRef, useState } from 'react';
-import { Upload, Download, FileSpreadsheet, Loader2, CheckCircle2 } from 'lucide-react';
+import { Upload, Download, Loader2, CheckCircle2 } from 'lucide-react';
 import { parseExcelData, downloadTemplate } from '../utils/excelParser';
-import { FullStudentData } from '../types';
+import { PortfolioData } from '../types';
 
 interface DataUploaderProps {
-  onDataLoaded: (data: FullStudentData) => void;
+  onDataLoaded: (data: Record<string, PortfolioData>) => void;
 }
 
 export const DataUploader: React.FC<DataUploaderProps> = ({ onDataLoaded }) => {
@@ -25,7 +25,7 @@ export const DataUploader: React.FC<DataUploaderProps> = ({ onDataLoaded }) => {
       setTimeout(() => setSuccess(false), 3000);
     } catch (error) {
       console.error("Failed to parse excel", error);
-      alert("Error parsing Excel file. Please ensure you are using the correct template.");
+      alert("Error parsing Excel file. Please ensure you are using the correct template with 'Student ID' columns.");
     } finally {
       setLoading(false);
       // Reset input so same file can be selected again if needed
@@ -50,7 +50,7 @@ export const DataUploader: React.FC<DataUploaderProps> = ({ onDataLoaded }) => {
       <button 
         onClick={downloadTemplate}
         className="hidden md:flex items-center text-sm text-brand-600 hover:text-brand-800 font-medium px-3 py-2 rounded-md hover:bg-brand-50 transition-colors"
-        title="Download Excel Template"
+        title="Download Bulk Template"
       >
         <Download className="w-4 h-4 mr-2" />
         Template
@@ -69,7 +69,7 @@ export const DataUploader: React.FC<DataUploaderProps> = ({ onDataLoaded }) => {
         ) : (
           <Upload className="w-4 h-4 mr-2" />
         )}
-        {loading ? 'Loading...' : success ? 'Loaded!' : 'Import Data'}
+        {loading ? 'Processing...' : success ? 'Updated!' : 'Import Excel'}
       </button>
     </div>
   );

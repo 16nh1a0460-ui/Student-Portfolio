@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { STUDENT_DATABASE, INITIAL_PORTFOLIO_DATA } from './constants';
+import { INITIAL_PORTFOLIO_DATA } from './constants';
 import { PortfolioData } from './types';
 import { Sidebar } from './components/Sidebar';
 import { CoverPage } from './components/CoverPage';
@@ -10,26 +10,87 @@ import { AssessmentSheet } from './components/AssessmentSheet';
 import { Certificates } from './components/Certificates';
 import { DataUploader } from './components/DataUploader';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { DatabaseProvider, useDatabase } from './contexts/DatabaseContext';
 import { LoginPage } from './components/LoginPage';
 import { AIBox } from './components/AIBox';
 
 // Internal Layout Component that handles the authenticated view
 const DashboardLayout: React.FC = () => {
   const { user } = useAuth();
+  const { getStudentData, updateDatabase } = useDatabase();
   const [data, setData] = useState<PortfolioData>(INITIAL_PORTFOLIO_DATA);
   const [activeTab, setActiveTab] = useState('cover');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Load user specific data when user changes
+  // Load user specific data when user changes or database updates
   useEffect(() => {
-    if (user && STUDENT_DATABASE[user.username]) {
-      setData(STUDENT_DATABASE[user.username]);
+    if (user) {
+      const studentData = getStudentData(user.username);
+      if (studentData) {
+        setData(studentData);
+      }
     }
-  }, [user]);
+  }, [user, getStudentData]); // Depend on getStudentData to react to context updates
 
-  const handleDataLoad = (newData: any) => {
-     console.log("Data loaded", newData);
-     alert("Data upload simulated. In a real app, this would update your profile.");
+  const handleDataLoad = (newDatabaseMap: Record<string, PortfolioData>) => {
+     console.log("Bulk Data received in App:", newDatabaseMap);
+     
+     if (!user) return;
+
+     const userKey = user.username.toLowerCase().trim();
+     const loadedKeys = Object.keys(newDatabaseMap);
+     
+     // 1. Try Exact Match
+     if (newDatabaseMap[userKey]) {
+        updateDatabase(newDatabaseMap);
+        setData(newDatabaseMap[userKey]);
+        alert(`Success! Updated portfolio for '${user.username}'.`);
+        return;
+     }
+
+     // 2. If no exact match, try to find a profile with matching Name
+     const matchingKeyByName = loadedKeys.find(key => {
+        const profile = newDatabaseMap[key];
+        return profile.profile.studentName.toLowerCase().includes(userKey) || 
+               user.name.toLowerCase().includes(profile.profile.studentName.toLowerCase());
+     });
+
+     if (matchingKeyByName) {
+        if (window.confirm(`Your ID '${userKey}' wasn't found, but we found a profile for '${newDatabaseMap[matchingKeyByName].profile.studentName}'. Do you want to load this data?`)) {
+           // Map this data to the current user's ID
+           const mappedData = { ...newDatabaseMap, [userKey]: newDatabaseMap[matchingKeyByName] };
+           updateDatabase(mappedData);
+           setData(newDatabaseMap[matchingKeyByName]);
+           return;
+        }
+     }
+
+     // 3. Fallback: If strict match fails, offer to load the first one.
+     if (loadedKeys.length > 0) {
+        const firstKey = loadedKeys[0];
+        const firstProfile = newDatabaseMap[firstKey];
+        const confirmMsg = `Strict match failed.\n\nLogged in as: '${userKey}'\nFile contains IDs: ${loadedKeys.join(', ')}\n\nDo you want to FORCE load the data from ID '${firstKey}' (${firstProfile.profile.studentName}) into your profile?`;
+        
+        if (window.confirm(confirmMsg)) {
+           // Create a new map where we explicitly set the current user's data to this loaded data
+           const forcedData = {
+              ...newDatabaseMap,
+              [userKey]: {
+                 ...firstProfile,
+                 // Keep original data structure
+              }
+           };
+           updateDatabase(forcedData);
+           setData(firstProfile);
+           alert("Data loaded successfully via manual override.");
+        } else {
+           // Update database anyway in case they want to log in as the other user later
+           updateDatabase(newDatabaseMap);
+           alert("Database updated with file content, but your current view was not changed.");
+        }
+     } else {
+        alert("No valid student profiles found in the uploaded file.");
+     }
   };
 
   const renderContent = () => {
@@ -125,7 +186,9 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <AppContent />
+      <DatabaseProvider>
+        <AppContent />
+      </DatabaseProvider>
     </AuthProvider>
   );
 };

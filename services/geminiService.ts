@@ -2,16 +2,8 @@ import { GoogleGenAI } from "@google/genai";
 import { FullStudentData } from "../types";
 
 export const generateStudentSummary = async (data: FullStudentData): Promise<string> => {
-  // Defensive check for process.env to prevent runtime crashes in strict browser environments
-  const apiKey = (typeof process !== 'undefined' && process.env) ? process.env.API_KEY : null;
-
-  if (!apiKey) {
-    console.warn("Gemini API Key is missing in process.env");
-    return "API Key is missing. Unable to generate summary.";
-  }
-
   try {
-    const ai = new GoogleGenAI({ apiKey: apiKey });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     const prompt = `
       You are an expert academic counselor. Analyze the following student data JSON and write a professional, encouraging, yet honest performance summary for the student's parents.
